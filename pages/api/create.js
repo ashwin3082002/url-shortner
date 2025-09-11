@@ -56,7 +56,7 @@ export default async function handler(req, res) {
 
   const origin = req.headers.origin || '';
   const trustedOrigins = (process.env.TRUSTED_ORIGINS || '').split(',');
-
+  console.log(`Trusted Origins: ${trustedOrigins}`);
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     console.log('[CORS] Handling OPTIONS preflight...');
