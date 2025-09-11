@@ -96,6 +96,7 @@ export default async function handler(req, res) {
   console.log('[Request] Received body:', { api_key, key, redirect_to, captcha_token: captcha_token ? '***' : null });
 
   const allowedDomains = (process.env.ALLOWED_DOMAINS || '').split(',');
+  console.log(`[INFO] Allowed Domains: ${allowedDomains}`);
   const validApiKeys = (process.env.API_KEYS || '').split(',');
 
   // Origin check (redundant, but just in case)
