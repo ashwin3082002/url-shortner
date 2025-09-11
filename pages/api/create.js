@@ -48,28 +48,28 @@ async function validateTurnstile(token, remoteip) {
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
-const trustedOrigins = (process.env.TRUSTED_ORIGINS || '').split(',');
+  const trustedOrigins = (process.env.TRUSTED_ORIGINS || '').split(',');
 
-// Handle CORS preflight request
-if (req.method === 'OPTIONS') {
+  // Handle CORS preflight request
+  if (req.method === 'OPTIONS') {
+    if (trustedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.status(204).end();
+      return;
+    } else {
+      res.status(403).end();
+      return;
+    }
+  }
+  
+  // For actual POST requests, add CORS header if origin is trusted
   if (trustedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.status(204).end();
-    return;
   } else {
-    res.status(403).end();
-    return;
+    return res.status(403).json({ error: 'Untrusted origin' });
   }
-}
-
-// For actual POST requests, add CORS header if origin is trusted
-if (trustedOrigins.includes(origin)) {
-  res.setHeader('Access-Control-Allow-Origin', origin);
-} else {
-  return res.status(403).json({ error: 'Untrusted origin' });
-}
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -80,9 +80,6 @@ if (trustedOrigins.includes(origin)) {
   }
 
   const { api_key, key, redirect_to, captcha_token } = req.body;
-
-  const origin = req.headers.origin || '';
-  const trustedOrigins = (process.env.TRUSTED_ORIGINS || '').split(',');
   const allowedDomains = (process.env.ALLOWED_DOMAINS || '').split(',');
   const validApiKeys = (process.env.API_KEYS || '').split(',');
 
