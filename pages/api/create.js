@@ -152,7 +152,9 @@ export default async function handler(req, res) {
 
   if (existingRedirectError) {
     console.error('[DB] Error checking existing redirect:', existingRedirectError);
+    return res.status(500).json({ error: 'Database query error' });
   }
+  
   if (existingRedirect) {
     console.log(`[DB] redirect_to URL exists, returning existing short URL: ${existingRedirect.key}`);
     return res.status(200).json({
@@ -160,6 +162,8 @@ export default async function handler(req, res) {
       redirect_to,
     });
   }
+
+  console.log('[DB] No existing redirect found, proceeding to create new short URL');
 
   // Check if key already taken
   console.log(`[DB] Checking if key "${key}" already exists...`);
