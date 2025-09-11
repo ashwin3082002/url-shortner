@@ -7,85 +7,96 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// --------- API Route ---------
+// --------- Basic Rate Limit Middleware ---------
 export async function middleware(req, res) {
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
-  // Rate limit (basic memory-based throttling)
   if (!global.rateLimit) global.rateLimit = {};
   const now = Date.now();
   global.rateLimit[ip] = global.rateLimit[ip]?.filter(ts => now - ts < 60000) || [];
   if (global.rateLimit[ip].length >= 10) {
-    return res.status(429).json({ error: 'Too many requests' });
+    res.status(429).json({ error: 'Too many requests' });
+    return true;
   }
   global.rateLimit[ip].push(now);
+  return false;
 }
 
-export default function Home() {
-  return (
-    <div style={{ textAlign: 'center', paddingTop: '100px' }}>
-      <h1>Secure Link Shortener</h1>
-      <p>Use the <code>/api/create</code> endpoint to create links.</p>
-    </div>
-  );
+// --------- Turnstile Validation ---------
+async function validateTurnstile(token, remoteip) {
+  const formData = new URLSearchParams();
+  formData.append('secret', process.env.TURNSTILE_SECRET_KEY);
+  formData.append('response', token);
+  if (remoteip) formData.append('remoteip', remoteip);
+
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (err) {
+    console.error('Turnstile error:', err);
+    return { success: false };
+  }
 }
 
-// --------- API Handler ---------
+// --------- API Route ---------
 export async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Rate limiting middleware
-  await middleware(req, res);
+  const throttled = await middleware(req, res);
+  if (throttled) return;
 
-  const {
-    api_key,
-    key,
-    redirect_to,
-    captcha_token
-  } = req.body;
-
+  const { api_key, key, redirect_to, captcha_token } = req.body;
   const origin = req.headers.origin || '';
-  const trustedOrigins = process.env.TRUSTED_ORIGINS?.split(',') || [];
-  const allowedDomains = process.env.ALLOWED_DOMAINS?.split(',') || [];
-  const validApiKeys = process.env.API_KEYS?.split(',') || [];
+  const trustedOrigins = (process.env.TRUSTED_ORIGINS || '').split(',');
+  const allowedDomains = (process.env.ALLOWED_DOMAINS || '').split(',');
+  const validApiKeys = (process.env.API_KEYS || '').split(',');
 
-  // ---- Origin check ----
+  // ---- Origin Check ----
   if (!trustedOrigins.includes(origin)) {
     return res.status(403).json({ error: 'Untrusted origin' });
   }
 
-  // ---- CAPTCHA check ----
-  const captchaResponse = await fetch('https://hcaptcha.com/siteverify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `response=${captcha_token}&secret=${process.env.CAPTCHA_SECRET}`
-  });
-  const captchaResult = await captchaResponse.json();
+  // ---- CAPTCHA (Cloudflare Turnstile) ----
+  const remoteip =
+    req.headers['cf-connecting-ip'] ||
+    req.headers['x-forwarded-for'] ||
+    req.connection.remoteAddress;
+
+  const captchaResult = await validateTurnstile(captcha_token, remoteip);
   if (!captchaResult.success) {
-    return res.status(400).json({ error: 'Invalid CAPTCHA' });
+    return res.status(400).json({ error: 'Invalid CAPTCHA', details: captchaResult['error-codes'] });
   }
 
-  // ---- API Key check ----
+  // ---- API Key Check ----
   if (!validApiKeys.includes(api_key)) {
     return res.status(401).json({ error: 'Invalid API Key' });
   }
 
-  // ---- Sanitize redirect_to ----
+  // ---- Validate redirect_to URL ----
+  let url;
   try {
-    const url = new URL(redirect_to);
+    url = new URL(redirect_to);
     if (!allowedDomains.includes(url.hostname)) {
       return res.status(400).json({ error: 'Redirect domain not allowed' });
     }
   } catch {
-    return res.status(400).json({ error: 'Malformed redirect URL' });
+    return res.status(400).json({ error: 'Malformed redirect_to' });
   }
 
-  // ---- Sanitize key ----
+  // ---- Validate key ----
   if (!/^[a-zA-Z0-9_-]{3,32}$/.test(key)) {
     return res.status(400).json({ error: 'Invalid key format' });
   }
 
-  // ---- Check duplicates ----
+  // ---- Check for existing redirect_to ----
   const existingRedirect = await supabase
     .from('links')
     .select('*')
@@ -99,7 +110,7 @@ export async function handler(req, res) {
     });
   }
 
-  // ---- Check if key already exists ----
+  // ---- Check if key is taken ----
   const existingKey = await supabase
     .from('links')
     .select('id')
@@ -110,11 +121,8 @@ export async function handler(req, res) {
     return res.status(400).json({ error: 'Key already exists' });
   }
 
-  // ---- Insert new record ----
-  const insert = await supabase
-    .from('links')
-    .insert([{ key, redirect_to }]);
-
+  // ---- Insert ----
+  const insert = await supabase.from('links').insert([{ key, redirect_to }]);
   if (insert.error) {
     return res.status(500).json({ error: 'Failed to create short link' });
   }
@@ -125,7 +133,7 @@ export async function handler(req, res) {
   });
 }
 
-// --------- Dynamic Redirect Page ---------
+// --------- SSR Redirect Handler ---------
 export async function getServerSideProps({ params }) {
   const { key } = params || {};
 
@@ -166,7 +174,21 @@ export function RedirectPage({ redirectTo }) {
   );
 }
 
-// --------- Route Dispatcher ---------
+// --------- Main Page ---------
+export default function Home(props) {
+  if (props.isRedirect) {
+    return <RedirectPage redirectTo={props.redirectTo} />;
+  }
+
+  return (
+    <div style={{ textAlign: 'center', paddingTop: '100px' }}>
+      <h1>Secure Link Shortener</h1>
+      <p>Use the <code>/api/create</code> endpoint to create links.</p>
+    </div>
+  );
+}
+
+// --------- Dispatcher ---------
 Home.getInitialProps = async (ctx) => {
   const { req, res, query } = ctx;
 
@@ -196,10 +218,3 @@ Home.getInitialProps = async (ctx) => {
 };
 
 Home.getInitialProps.displayName = 'RouteHandler';
-
-Home.render = function HomeRender(props) {
-  if (props.isRedirect) {
-    return <RedirectPage redirectTo={props.redirectTo} />;
-  }
-  return <Home />;
-};
