@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -8,7 +6,7 @@ const supabase = createClient(
 );
 
 export async function getServerSideProps({ params }) {
-  const { key } = params || {};
+  const { key } = params;
 
   const { data, error } = await supabase
     .from('links')
@@ -17,29 +15,20 @@ export async function getServerSideProps({ params }) {
     .single();
 
   if (error || !data) {
-    return {
-      notFound: true,
-    };
+    return { notFound: true };
   }
 
   return {
-    props: {
-      redirectTo: data.redirect_to,
-    },
+    props: { redirectTo: data.redirect_to }
   };
 }
 
 export default function RedirectPage({ redirectTo }) {
-  const router = useRouter();
-
-  useEffect(() => {
-    window.location.href = redirectTo;
-  }, [redirectTo]);
-
   return (
     <div style={{ textAlign: 'center', paddingTop: '100px' }}>
       <h2>You are being redirected to:</h2>
       <p><a href={redirectTo}>{redirectTo}</a></p>
+      <p>Redirecting now…</p>
     </div>
   );
 }
