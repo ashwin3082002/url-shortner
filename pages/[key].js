@@ -6,7 +6,13 @@ const supabase = createClient(
 );
 
 export async function getServerSideProps({ params }) {
-  const { key } = params;
+  const { key } = params || {};
+  console.log('[Redirect] Received key param:', key);
+
+  if (!key) {
+    console.warn('[Redirect] No key provided in params');
+    return { notFound: true };
+  }
 
   const { data, error } = await supabase
     .from('links')
@@ -14,12 +20,18 @@ export async function getServerSideProps({ params }) {
     .eq('key', key)
     .single();
 
+  console.log('[Redirect] Supabase query error:', error);
+  console.log('[Redirect] Supabase query data:', data);
+
   if (error || !data) {
+    console.warn(`[Redirect] No redirect found for key "${key}"`);
     return { notFound: true };
   }
 
   return {
-    props: { redirectTo: data.redirect_to }
+    props: {
+      redirectTo: data.redirect_to
+    }
   };
 }
 
