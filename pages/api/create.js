@@ -148,22 +148,24 @@ export default async function handler(req, res) {
     .from('links')
     .select('*')
     .eq('redirect_to', redirect_to);
-
+  
   if (existingRedirectError) {
     console.error('[DB] Error checking existing redirect:', existingRedirectError);
     return res.status(500).json({ error: 'Database query error' });
   }
   
-  if (existingRedirect) {
-    console.log(`[DB] redirect_to URL exists, returning existing short URL: ${existingRedirect[0].key}`);
+  // Check if the result is not empty
+  if (existingRedirect && existingRedirect.length > 0) {
+    // Safely access the first item in the result
+    const redirect = existingRedirect[0];
+    console.log(`[DB] redirect_to URL exists, returning existing short URL: ${redirect.key}`);
     return res.status(200).json({
-      short_url: `https://${req.headers.host}/${existingRedirect[0].key}`,
+      short_url: `https://${req.headers.host}/${redirect.key}`,
       redirect_to,
     });
   }
-
+  
   console.log('[DB] No existing redirect found, proceeding to create new short URL');
-
   // Check if key already taken
   console.log(`[DB] Checking if key "${key}" already exists...`);
   const { data: existingKey, error: existingKeyError } = await supabase
