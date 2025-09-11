@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { useEffect, useState } from 'react';
 
 const supabase = createClient(
   process.env.DATABASE_URL,
@@ -36,11 +37,29 @@ export async function getServerSideProps({ params }) {
 }
 
 export default function RedirectPage({ redirectTo }) {
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    // Countdown timer
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          window.location.href = redirectTo;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval); // Cleanup
+  }, [redirectTo]);
+
   return (
     <div style={{ textAlign: 'center', paddingTop: '100px' }}>
       <h2>You are being redirected to:</h2>
       <p><a href={redirectTo}>{redirectTo}</a></p>
-      <p>Redirecting now…</p>
+      <p>Redirecting in <strong>{countdown}</strong> second{countdown !== 1 ? 's' : ''}…</p>
     </div>
   );
+}
 }
