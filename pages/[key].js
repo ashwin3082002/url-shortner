@@ -112,7 +112,8 @@ export default function RedirectPage({ redirectTo }) {
 
         .tooltip-text {
           visibility: hidden;
-          max-width: 90vw; /* responsive width */
+          min-width: 200px;
+          max-width: 90vw; /* fit screen */
           background-color: #333;
           color: #fff;
           text-align: left;
@@ -126,9 +127,13 @@ export default function RedirectPage({ redirectTo }) {
           opacity: 0;
           transition: opacity 0.3s;
           font-size: 14px;
-          word-break: break-all;
-          white-space: normal;
+        
+          /* 🔑 Fix for your issue */
+          white-space: normal;         /* allow normal wrapping */
+          overflow-wrap: anywhere;     /* break if needed */
+          word-break: break-word;      /* break long words safely */
         }
+
 
         .tooltip-text::after {
           content: '';
