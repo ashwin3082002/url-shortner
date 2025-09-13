@@ -1,17 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
+import { parse } from 'url';
 
+// Initialize Supabase client
 const supabase = createClient(
-  process.env.DATABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.DATABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
 );
 
+// Server-side logic
 export async function getServerSideProps({ params }) {
   const { key } = params || {};
   console.log('[Redirect] Received key param:', key);
 
   if (!key) {
-    console.warn('[Redirect] No key provided in params');
     return { notFound: true };
   }
 
@@ -21,9 +23,6 @@ export async function getServerSideProps({ params }) {
     .eq('key', key)
     .single();
 
-  console.log('[Redirect] Supabase query error:', error);
-  console.log('[Redirect] Supabase query data:', data);
-
   if (error || !data) {
     console.warn(`[Redirect] No redirect found for key "${key}"`);
     return { notFound: true };
@@ -31,16 +30,26 @@ export async function getServerSideProps({ params }) {
 
   return {
     props: {
-      redirectTo: data.redirect_to
-    }
+      redirectTo: data.redirect_to,
+    },
   };
 }
 
+// Client-side redirect page
 export default function RedirectPage({ redirectTo }) {
   const [countdown, setCountdown] = useState(5);
+  const [isTrustedDomain, setIsTrustedDomain] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+
+  const allowedDomains = (process.env.ALLOWED_DOMAINS || '').split(',').map(domain => domain.trim());
+  const redirectHostname = parse(redirectTo).hostname || '';
 
   useEffect(() => {
-    // Countdown timer
+    const trusted = allowedDomains.includes(redirectHostname);
+    setIsTrustedDomain(trusted);
+
+    if (!trusted) return; // Wait for user confirmation if untrusted
+
     const interval = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -51,14 +60,88 @@ export default function RedirectPage({ redirectTo }) {
       });
     }, 1000);
 
-    return () => clearInterval(interval); // Cleanup
-  }, [redirectTo]);
+    return () => clearInterval(interval);
+  }, [redirectTo, isConfirmed]);
+
+  const handleConfirm = () => {
+    setIsConfirmed(true);
+  };
 
   return (
-    <div style={{ textAlign: 'center', paddingTop: '100px' }}>
+    <div style={styles.container}>
       <h2>You are being redirected to:</h2>
-      <p><a href={redirectTo}>{redirectTo}</a></p>
-      <p>Redirecting in <strong>{countdown}</strong> second{countdown !== 1 ? 's' : ''}…</p>
+      <p>
+        <a href={redirectTo} style={styles.link}>
+          {redirectTo}
+        </a>
+      </p>
+
+      <p>
+        Domain Status:{' '}
+        <span style={isTrustedDomain ? styles.trusted : styles.untrusted}>
+          {isTrustedDomain ? '✅ Trusted' : '⚠️ Untrusted'}
+        </span>
+      </p>
+
+      {!isTrustedDomain && !isConfirmed ? (
+        <div style={styles.warningBox}>
+          <p>
+            This domain is not verified. Proceed only if you trust the
+            destination.
+          </p>
+          <button style={styles.button} onClick={handleConfirm}>
+            Proceed Anyway
+          </button>
+        </div>
+      ) : (
+        <p>
+          Redirecting in <strong>{countdown}</strong>{' '}
+          second{countdown !== 1 ? 's' : ''}…
+        </p>
+      )}
     </div>
   );
 }
+
+// Inline styles for simplicity
+const styles = {
+  container: {
+    textAlign: 'center',
+    paddingTop: '100px',
+    fontFamily: `'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`,
+    maxWidth: '600px',
+    margin: '0 auto',
+    color: '#333',
+  },
+  link: {
+    fontSize: '18px',
+    color: '#0070f3',
+    textDecoration: 'underline',
+    wordBreak: 'break-all',
+  },
+  trusted: {
+    color: 'green',
+    fontWeight: 'bold',
+  },
+  untrusted: {
+    color: 'red',
+    fontWeight: 'bold',
+  },
+  warningBox: {
+    backgroundColor: '#fff3cd',
+    border: '1px solid #ffeeba',
+    padding: '20px',
+    borderRadius: '5px',
+    marginTop: '20px',
+  },
+  button: {
+    backgroundColor: '#0070f3',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 20px',
+    fontSize: '16px',
+    marginTop: '10px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
+};
