@@ -72,10 +72,10 @@ export default function RedirectPage({ redirectTo }) {
     <div style={styles.container}>
       <h2>You are being redirected to:</h2>
       <p>
-        <a href={redirectTo} style={styles.link} className="tooltip">
+        <span style={styles.link} className="tooltip">
           {redirectHostname}
           <span className="tooltip-text">{redirectTo}</span>
-        </a>
+        </span>
       </p>
 
       <p>
@@ -112,33 +112,33 @@ export default function RedirectPage({ redirectTo }) {
 
         .tooltip-text {
           visibility: hidden;
-          width: max-content;
-          max-width: 400px;
+          max-width: 90vw; /* responsive width */
           background-color: #333;
           color: #fff;
           text-align: left;
           border-radius: 6px;
           padding: 8px 12px;
           position: absolute;
-          z-index: 1;
-          bottom: 125%; /* show above */
+          z-index: 10;
+          top: 125%; /* show below */
           left: 50%;
           transform: translateX(-50%);
           opacity: 0;
           transition: opacity 0.3s;
           font-size: 14px;
           word-break: break-all;
+          white-space: normal;
         }
 
         .tooltip-text::after {
           content: '';
           position: absolute;
-          top: 100%;
+          bottom: 100%; /* arrow points up */
           left: 50%;
           margin-left: -5px;
           border-width: 5px;
           border-style: solid;
-          border-color: #333 transparent transparent transparent;
+          border-color: transparent transparent #333 transparent;
         }
 
         .tooltip:hover .tooltip-text {
