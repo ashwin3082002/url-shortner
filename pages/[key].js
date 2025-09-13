@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
-import { parse } from 'url';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -41,14 +40,16 @@ export default function RedirectPage({ redirectTo }) {
   const [isTrustedDomain, setIsTrustedDomain] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  const allowedDomains = (process.env.NEXT_PUBLIC_ALLOWED_DOMAINS || '').split(',').map(domain => domain.trim());
+  const allowedDomains = (process.env.ALLOWED_DOMAINS || '')
+    .split(',')
+    .map(domain => domain.trim());
   const redirectHostname = new URL(redirectTo).hostname || '';
 
   useEffect(() => {
     const trusted = allowedDomains.includes(redirectHostname);
     setIsTrustedDomain(trusted);
 
-  if (!trusted && !isConfirmed) return;
+    if (!trusted && !isConfirmed) return;
 
     const interval = setInterval(() => {
       setCountdown(prev => {
@@ -71,8 +72,9 @@ export default function RedirectPage({ redirectTo }) {
     <div style={styles.container}>
       <h2>You are being redirected to:</h2>
       <p>
-        <a href={redirectTo} style={styles.link}>
-          {redirectTo}
+        <a href={redirectTo} style={styles.link} className="tooltip">
+          {redirectHostname}
+          <span className="tooltip-text">{redirectTo}</span>
         </a>
       </p>
 
@@ -99,6 +101,51 @@ export default function RedirectPage({ redirectTo }) {
           second{countdown !== 1 ? 's' : ''}…
         </p>
       )}
+
+      {/* Tooltip styles */}
+      <style jsx>{`
+        .tooltip {
+          position: relative;
+          display: inline-block;
+          cursor: pointer;
+        }
+
+        .tooltip-text {
+          visibility: hidden;
+          width: max-content;
+          max-width: 400px;
+          background-color: #333;
+          color: #fff;
+          text-align: left;
+          border-radius: 6px;
+          padding: 8px 12px;
+          position: absolute;
+          z-index: 1;
+          bottom: 125%; /* show above */
+          left: 50%;
+          transform: translateX(-50%);
+          opacity: 0;
+          transition: opacity 0.3s;
+          font-size: 14px;
+          word-break: break-all;
+        }
+
+        .tooltip-text::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          margin-left: -5px;
+          border-width: 5px;
+          border-style: solid;
+          border-color: #333 transparent transparent transparent;
+        }
+
+        .tooltip:hover .tooltip-text {
+          visibility: visible;
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 }
