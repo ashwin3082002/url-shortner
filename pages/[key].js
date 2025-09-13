@@ -40,7 +40,7 @@ export default function RedirectPage({ redirectTo }) {
   const [isTrustedDomain, setIsTrustedDomain] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  const allowedDomains = (process.env.ALLOWED_DOMAINS || '')
+  const allowedDomains = (process.env.NEXT_PUBLIC_TRUSTED_DOMAINS || '')
     .split(',')
     .map(domain => domain.trim());
   const redirectHostname = new URL(redirectTo).hostname || '';
