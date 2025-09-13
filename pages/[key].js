@@ -112,27 +112,30 @@ export default function RedirectPage({ redirectTo }) {
 
         .tooltip-text {
           visibility: hidden;
-          min-width: 200px;
-          max-width: 90vw; /* fit screen */
+          display: inline-block;
+          min-width: 250px;       /* decent minimum */
+          max-width: 90vw;        /* expand up to screen width */
           background-color: #333;
           color: #fff;
           text-align: left;
           border-radius: 6px;
-          padding: 8px 12px;
+          padding: 10px 14px;
           position: absolute;
           z-index: 10;
-          top: 125%; /* show below */
+          top: 125%;              /* show below */
           left: 50%;
           transform: translateX(-50%);
           opacity: 0;
           transition: opacity 0.3s;
           font-size: 14px;
+          line-height: 1.4;
         
-          /* 🔑 Fix for your issue */
-          white-space: normal;         /* allow normal wrapping */
-          overflow-wrap: anywhere;     /* break if needed */
-          word-break: break-word;      /* break long words safely */
+          /* 🔑 word handling */
+          white-space: pre-wrap;       /* allow wrapping */
+          word-break: break-word;      /* break only long segments */
+          overflow-wrap: anywhere;     /* break long query params if needed */
         }
+
 
 
         .tooltip-text::after {
