@@ -4,8 +4,8 @@ import { parse } from 'url';
 
 // Initialize Supabase client
 const supabase = createClient(
-  process.env.DATABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
+  process.env.DATABASE_URL || '',
+  process.env.SUPABASE_ANON_KEY || ''
 );
 
 // Server-side logic
@@ -41,14 +41,14 @@ export default function RedirectPage({ redirectTo }) {
   const [isTrustedDomain, setIsTrustedDomain] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  const allowedDomains = (process.env.ALLOWED_DOMAINS || '').split(',').map(domain => domain.trim());
-  const redirectHostname = parse(redirectTo).hostname || '';
+  const allowedDomains = (process.env.NEXT_PUBLIC_ALLOWED_DOMAINS || '').split(',').map(domain => domain.trim());
+  const redirectHostname = new URL(redirectTo).hostname || '';
 
   useEffect(() => {
     const trusted = allowedDomains.includes(redirectHostname);
     setIsTrustedDomain(trusted);
 
-    if (!trusted) return; // Wait for user confirmation if untrusted
+  if (!trusted && !isConfirmed) return;
 
     const interval = setInterval(() => {
       setCountdown(prev => {
